@@ -239,6 +239,12 @@ func (nc *notificationsConsumer) Consume(delivery rmq.Delivery) {
 
 	// Figure out where we stand
 	if msgs.Count == 0 {
+		// An empty inbox is a baseline too, so the first message to
+		// arrive is notified rather than taken as the baseline below.
+		if account.CheckCount == 0 {
+			account.CheckCount = 1
+			_ = nc.accountRepo.Update(ctx, &account)
+		}
 		logger.Debug("no new messages, bailing early")
 		return
 	}

@@ -255,10 +255,13 @@ func (a *api) registerAccount(ctx context.Context, req accountRegistrationReques
 		return acct, 500, err
 	}
 
+	// The inbox as it is now is the baseline, even when it is empty:
+	// leaving CheckCount at 0 would make the worker swallow the first
+	// message that ever arrives as its "don't flood" baseline.
 	if mi.Count > 0 {
 		acct.LastMessageID = mi.Children[0].FullName()
-		acct.CheckCount = 1
 	}
+	acct.CheckCount = 1
 
 	if err := a.accountRepo.CreateOrUpdate(ctx, &acct); err != nil {
 		return acct, 422, err
