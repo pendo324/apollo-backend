@@ -37,7 +37,8 @@ type barkRequest struct {
 // marshal the payload it built and lift out the alert fields plus the custom
 // keys Apollo uses for tap routing. Marshals fresh on every call — the
 // subreddit/user workers mutate AlertTitle on a shared payload between sends.
-func barkRequestFromPayload(p *payload.Payload) (*barkRequest, error) {
+// scheme is the deep-link scheme of the app that registered the device.
+func barkRequestFromPayload(p *payload.Payload, scheme string) (*barkRequest, error) {
 	raw, err := json.Marshal(p)
 	if err != nil {
 		return nil, err
@@ -97,7 +98,7 @@ func barkRequestFromPayload(p *payload.Payload) (*barkRequest, error) {
 		req.Sound = strings.TrimSuffix(sound, filepath.Ext(sound))
 	}
 
-	req.URL = clickURL(customs)
+	req.URL = clickURL(customs, scheme)
 
 	// Bark requires a body; the title alone is better than a dropped push.
 	if req.Body == "" {
@@ -110,7 +111,7 @@ func barkRequestFromPayload(p *payload.Payload) (*barkRequest, error) {
 	return req, nil
 }
 
-// clickURL derives the apollo:// deep link opened when the Bark notification
+// clickURL derives the <scheme>:// deep link (apollo:// for Apollo) opened when the Bark notification
 // is tapped, from the same custom keys Apollo's own notification tap handler
 // uses. Private messages have no post to open, so they land on the inbox
 // (an Apollo-Reborn tweak deep link). Anything with a post lands on the
@@ -125,28 +126,28 @@ func barkRequestFromPayload(p *payload.Payload) (*barkRequest, error) {
 // `-` isn't a \w character, so a `/-/` link silently degrades to opening the
 // post unanchored. context=1 shows the parent above the comment, matching
 // what a native notification tap does.
-func clickURL(customs map[string]interface{}) string {
+func clickURL(customs map[string]interface{}, scheme string) string {
 	if t, _ := customs["type"].(string); t == "private-message" {
-		return "apollo://reborn/inbox"
+		return scheme + "://reborn/inbox"
 	}
 
 	postID, _ := customs["post_id"].(string)
 	subreddit, _ := customs["subreddit"].(string)
 	if postID == "" || subreddit == "" {
-		return "apollo://reborn/inbox"
+		return scheme + "://reborn/inbox"
 	}
 
 	if commentID, _ := customs["comment_id"].(string); commentID != "" {
-		return fmt.Sprintf("apollo://reddit.com/r/%s/comments/%s/_/%s/?context=1",
-			url.PathEscape(subreddit), url.PathEscape(postID), url.PathEscape(commentID))
+		return fmt.Sprintf("%s://reddit.com/r/%s/comments/%s/_/%s/?context=1",
+			scheme, url.PathEscape(subreddit), url.PathEscape(postID), url.PathEscape(commentID))
 	}
 
-	return fmt.Sprintf("apollo://reddit.com/r/%s/comments/%s",
-		url.PathEscape(subreddit), url.PathEscape(postID))
+	return fmt.Sprintf("%s://reddit.com/r/%s/comments/%s",
+		scheme, url.PathEscape(subreddit), url.PathEscape(postID))
 }
 
 func (s *Sender) sendBark(ctx context.Context, device domain.Device, p *payload.Payload) (Result, error) {
-	req, err := barkRequestFromPayload(p)
+	req, err := barkRequestFromPayload(p, device.DeepLinkScheme())
 	if err != nil {
 		return Result{}, err
 	}

@@ -35,7 +35,7 @@ func TestBarkRequestFromPayload_CommentReply(t *testing.T) {
 		Custom("type", "comment").
 		ThreadID("comment")
 
-	req, err := barkRequestFromPayload(p)
+	req, err := barkRequestFromPayload(p, "apollo")
 	require.NoError(t, err)
 
 	assert.Equal(t, "Equinox_Shift in Protests set to disrupt Ottawa's downtown for 3rd straight weekend", req.Title)
@@ -50,11 +50,11 @@ func TestBarkRequestFromPayload_CommentReply(t *testing.T) {
 func TestBarkRequestFromPayload_NoSound(t *testing.T) {
 	t.Parallel()
 
-	req, err := barkRequestFromPayload(payload.NewPayload().AlertTitle("Quiet"))
+	req, err := barkRequestFromPayload(payload.NewPayload().AlertTitle("Quiet"), "apollo")
 	require.NoError(t, err)
 	assert.Empty(t, req.Sound)
 
-	req, err = barkRequestFromPayload(payload.NewPayload().AlertTitle("Stock").Sound("default"))
+	req, err = barkRequestFromPayload(payload.NewPayload().AlertTitle("Stock").Sound("default"), "apollo")
 	require.NoError(t, err)
 	assert.Empty(t, req.Sound)
 }
@@ -75,7 +75,7 @@ func TestBarkRequestFromPayload_PrivateMessage(t *testing.T) {
 		Custom("subreddit", "").
 		Custom("type", "private-message")
 
-	req, err := barkRequestFromPayload(p)
+	req, err := barkRequestFromPayload(p, "apollo")
 	require.NoError(t, err)
 
 	assert.Equal(t, "Message from welcomebot", req.Title)
@@ -103,7 +103,7 @@ func TestBarkRequestFromPayload_SubredditWatcher(t *testing.T) {
 		Custom("thumbnail", "https://a.thumbs.redditmedia.com/Lr4b.jpg").
 		ThreadID("subreddit-watcher")
 
-	req, err := barkRequestFromPayload(p)
+	req, err := barkRequestFromPayload(p, "apollo")
 	require.NoError(t, err)
 
 	assert.Equal(t, "📣 “bug pics” Watcher", req.Title)
@@ -124,7 +124,7 @@ func TestBarkRequestFromPayload_UsernameMention(t *testing.T) {
 		Custom("subreddit", "calicosummer").
 		Custom("type", "username")
 
-	req, err := barkRequestFromPayload(p)
+	req, err := barkRequestFromPayload(p, "apollo")
 	require.NoError(t, err)
 
 	assert.Equal(t, "apollo://reddit.com/r/calicosummer/comments/u02338/_/i6xobpa/?context=1", req.URL)
@@ -139,7 +139,7 @@ func TestBarkRequestFromPayload_Badge(t *testing.T) {
 		Badge(3).
 		Custom("type", "private-message")
 
-	req, err := barkRequestFromPayload(p)
+	req, err := barkRequestFromPayload(p, "apollo")
 	require.NoError(t, err)
 
 	require.NotNil(t, req.Badge)
@@ -158,7 +158,7 @@ func TestBarkRequestFromPayload_TestBlastFallsBackToInbox(t *testing.T) {
 		MutableContent().
 		Sound("traloop.wav")
 
-	req, err := barkRequestFromPayload(p)
+	req, err := barkRequestFromPayload(p, "apollo")
 	require.NoError(t, err)
 
 	assert.Equal(t, "apollo://reborn/inbox", req.URL)
@@ -171,7 +171,7 @@ func TestClickURL_EscapesPathComponents(t *testing.T) {
 	got := clickURL(map[string]interface{}{
 		"post_id":   "abc123",
 		"subreddit": "r weird/name",
-	})
+	}, "apollo")
 	assert.Equal(t, "apollo://reddit.com/r/r%20weird%2Fname/comments/abc123", got)
 }
 
@@ -185,7 +185,7 @@ func TestClickURL_CommentAnchorUsesUnderscoreSlug(t *testing.T) {
 		"post_id":    "1um41tv",
 		"subreddit":  "ApolloReborn",
 		"comment_id": "ov9d35z",
-	})
+	}, "apollo")
 	assert.Equal(t, "apollo://reddit.com/r/ApolloReborn/comments/1um41tv/_/ov9d35z/?context=1", got)
 	assert.NotContains(t, got, "/-/")
 }
@@ -195,7 +195,7 @@ func TestBarkRequestFromPayload_EmptyBodyFallsBackToTitle(t *testing.T) {
 
 	p := payload.NewPayload().AlertTitle("Only a title")
 
-	req, err := barkRequestFromPayload(p)
+	req, err := barkRequestFromPayload(p, "apollo")
 	require.NoError(t, err)
 
 	assert.Equal(t, "Only a title", req.Body)
@@ -282,4 +282,15 @@ func TestSendBark_DefaultIconFallback(t *testing.T) {
 			assert.Equal(t, tc.wantIcon, got.Icon)
 		})
 	}
+}
+
+// Devices registered by another client (e.g. Phoebus) carry their own scheme,
+// so a tap opens that app rather than Apollo.
+func TestClickURL_UsesDeviceScheme(t *testing.T) {
+	t.Parallel()
+
+	assert.Equal(t, "phoebus://reborn/inbox",
+		clickURL(map[string]interface{}{"type": "private-message"}, "phoebus"))
+	assert.Equal(t, "phoebus://reddit.com/r/pics/comments/ufzaml",
+		clickURL(map[string]interface{}{"post_id": "ufzaml", "subreddit": "pics"}, "phoebus"))
 }

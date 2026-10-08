@@ -25,7 +25,10 @@ CREATE TABLE devices (
     -- devices that receive notifications as an HTTP POST to their Bark push
     -- URL (transport_endpoint). Mirrors migrations/000014.
     transport character varying(16) NOT NULL DEFAULT 'apns',
-    transport_endpoint text NOT NULL DEFAULT ''
+    transport_endpoint text NOT NULL DEFAULT '',
+    -- URL scheme of the app a Bark notification tap opens; '' means
+    -- apollo. Mirrors migrations/000015.
+    url_scheme character varying(32) NOT NULL DEFAULT ''
 );
 
 CREATE TABLE devices_accounts (

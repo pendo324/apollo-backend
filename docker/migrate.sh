@@ -23,3 +23,10 @@ else
   psql -h postgres -U apollo -d apollo -v ON_ERROR_STOP=1 -f /patches/000014_add_device_transport.up.sql
   echo "device transport patch applied"
 fi
+
+if psql -h postgres -U apollo -d apollo -tAc "SELECT column_name FROM information_schema.columns WHERE table_name='devices' AND column_name='url_scheme'" | grep -q url_scheme; then
+  echo "devices.url_scheme present, skipping patch"
+else
+  psql -h postgres -U apollo -d apollo -v ON_ERROR_STOP=1 -f /patches/000015_add_device_url_scheme.up.sql
+  echo "device url scheme patch applied"
+fi

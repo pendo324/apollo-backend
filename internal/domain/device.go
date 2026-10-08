@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"net/url"
+	"regexp"
 
 	validation "github.com/go-ozzo/ozzo-validation/v4"
 )
@@ -23,6 +24,21 @@ type Device struct {
 	Sandbox           bool
 	Transport         string `json:"transport"`
 	TransportEndpoint string `json:"transport_endpoint"`
+	// URLScheme is the custom URL scheme of the app that registered, used
+	// for the deep link a Bark notification opens on tap. Empty means
+	// Apollo's own "apollo"; other clients (e.g. Phoebus) send theirs so a
+	// tap doesn't land in Apollo when both apps are installed.
+	URLScheme string `json:"url_scheme"`
+}
+
+var urlSchemePattern = regexp.MustCompile(`^[a-z][a-z0-9+.-]*$`)
+
+// DeepLinkScheme is the scheme Bark tap links use for this device.
+func (dev *Device) DeepLinkScheme() string {
+	if dev.URLScheme == "" {
+		return "apollo"
+	}
+	return dev.URLScheme
 }
 
 func (dev *Device) IsBark() bool {
@@ -33,6 +49,7 @@ func (dev *Device) Validate() error {
 	return validation.ValidateStruct(dev,
 		validation.Field(&dev.APNSToken, validation.Required, validation.Length(64, 200)),
 		validation.Field(&dev.Transport, validation.In(DeviceTransportAPNS, DeviceTransportBark)),
+		validation.Field(&dev.URLScheme, validation.Length(0, 32), validation.Match(urlSchemePattern)),
 		validation.Field(&dev.TransportEndpoint, validation.By(func(interface{}) error {
 			if !dev.IsBark() {
 				return nil
